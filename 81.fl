@@ -1,0 +1,176 @@
+%{
+%}
+option noyywrap
+%{
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <glib.h>
+#include <ctype.h>
+#include <stdbool.h>
+
+
+GTree* tree;
+FILE* verbs;
+FILE* allverbs;
+char** content;
+
+void printCharBuffer(char* b){ int i; for (i = 0; b[i] != '\0'; ++i) printf("%d ", b[i]); printf("\n");}
+
+int strcmpii(char *s1, char *s2) {
+    unsigned char *p1 = (unsigned char *)s1;
+    unsigned char *p2 = (unsigned char *)s2;
+      
+    while (*p1 != '\0') {
+        if (*p2 == '\0') return  1;
+        if (tolower(*p2) > tolower(*p1))   return -1;
+        if (tolower(*p1) > tolower(*p2))   return  1;
+
+        p1++;
+        p2++;
+    }
+
+    if (*p2 != '\0') return -1;
+    return 0;
+}
+
+
+void function(FILE * p){
+
+	char** array = (char**)malloc(sizeof(char*)*31803);
+	char buffer[30];
+	char* s = NULL;
+	int i = 0;
+	while(fgets(buffer,30,p)){
+		s = strtok(buffer,"\r\n");
+		array[i] = strdup(s);
+		i++;
+	}
+	array[i] = NULL;
+	content = array;
+	return;
+}
+
+
+void insertVerb(char* texto, int posicao){
+    char* verbo = (char*) malloc(100 * sizeof(char));
+    gpointer existe = NULL;
+    int flag = 10;
+    char* palavra = strtok(texto," ");
+    while(palavra != NULL && posicao) {
+        palavra = strtok(NULL," ");
+        posicao--;
+    }
+    if(palavra) verbo = strdup(palavra);
+    else return;
+    if(strlen(verbo)==1) return;
+    for(int j = 0;content[j]!=NULL;j++){
+    	flag = strcmpii(verbo,content[j]);
+    	if(flag == 0){
+    		break;
+    	}
+    }
+    existe = g_tree_lookup(tree,verbo);
+    if(!existe && flag == 0){
+    	 printf("verbo: %s\n",verbo);
+    	 g_tree_insert(tree,verbo,"");
+    }
+    return;
+}
+
+// --------------------------------------HTML----------- 
+
+void init_html(){
+	char*capa = "<html> <head> <meta charset='UTF-8'/>  <style> table, th, td { border: 1px solid black; border-collapse: collapse; } th, td { padding: 5px; } th { text-align: left; } </style> </head> <body>";
+	char* titulo = "<h1 align=\"center\"> Processamento de Linguagens Trabalho Prático 2 </h1><hr>\n";
+	char* tituloPeq = "<h2 align=\"center\"> Processador de Ingles corrente </h2>\n";
+	char* tituloData = "<h3 align=\"center\"> 23 - 04 - 2017 </h3><hr>\n";
+	char* verbos = "<h2> Lista de verbos ordenada</h2>\n";
+	fprintf(verbs,"%s",capa);
+	fprintf(verbs,"%s",titulo);
+	fprintf(verbs,"%s",tituloPeq);
+	fprintf(verbs,"%s",tituloData);
+	fprintf(verbs,"%s",verbos);
+	return;
+}
+
+
+%}
+
+%%
+
+[Ii]'m 			{ fprintf(yyout, "%c am", yytext[0]); }
+
+[Ii]'ll 		{ fprintf(yyout, "%c will", yytext[0]); }
+
+[Ww]e're 		{ fprintf(yyout, "%ce are", yytext[0]); }
+
+[Cc]an't 		{ fprintf(yyout, "%can not", yytext[0]); }
+
+[Ii]t's 		{ fprintf(yyout, "%ct is", yytext[0]); }
+
+[Dd]on't 		{ fprintf(yyout, "%co not", yytext[0]); }
+
+[Yy]ou'd 		{ fprintf(yyout, "%cou had", yytext[0]); }
+
+[Dd]oesn't 		{ fprintf(yyout, "%coes not", yytext[0]); }
+
+[Yy]ou'll 		{ fprintf(yyout, "%cou will", yytext[0]); }
+
+[Ii]sn't 		{ fprintf(yyout, "%cs not", yytext[0]); }
+
+[Aa]ren't 		{ fprintf(yyout, "%cre not", yytext[0]); }
+
+[Ww]on't 		{ fprintf(yyout, "%cill not", yytext[0]); }
+
+[Yy]ou're 		{ fprintf(yyout, "%cou are", yytext[0]); }
+
+[Ww]e'll 		{ fprintf(yyout, "%ce will", yytext[0]); }
+
+[Dd]idn't 		{ fprintf(yyout, "%cid not", yytext[0]); }
+
+[Tt]hat's 		{ fprintf(yyout, "%chat is", yytext[0]); }
+
+[Tt]here's 		{ fprintf(yyout, "%chere is", yytext[0]); }
+
+[Ww]hat's 		{ fprintf(yyout, "%chat is", yytext[0]); }
+
+
+(to)\ [a-z]* {insertVerb(yytext,1);}
+(do|does|did)\ [a-z]*\ [a-z]* {insertVerb(yytext,2);}
+
+%%
+
+//FUNÇÃO IMPRIMIR OS VERBOS
+
+gboolean funcao(gpointer key, gpointer value, gpointer data){
+
+	fprintf(verbs, "<li> %s </li>\n", (char*) key);
+
+    return FALSE;
+}
+
+int yywrap(){ return 1;}
+
+// MAIN
+
+int main(int argc, char** argv){
+	if(argc != 5){
+		printf("poucos argumentos\n");
+		return 1;
+	}
+	tree = g_tree_new((GCompareFunc)g_ascii_strcasecmp);
+	allverbs = fopen(argv[4],"r");
+	function(allverbs);
+	yyin = fopen(argv[1], "r");
+	yyout = fopen(argv[2], "w");
+	verbs = fopen(argv[3], "w");
+	init_html();
+	yylex();
+	g_tree_foreach(tree,funcao,NULL);
+	fprintf(verbs,"</ul><hr>\n");
+	fclose(verbs);
+	return 0;
+}
+
